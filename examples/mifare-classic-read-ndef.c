@@ -164,7 +164,12 @@ main(int argc, char *argv[])
 			uint8_t *tlv_data;
 			uint8_t *pbuffer = buffer;
 decode_tlv:
-			tlv_data = tlv_decode(pbuffer, &tlv_type, &tlv_data_len);
+			tlv_data = tlv_decode_safe(pbuffer, 4096, &tlv_type, &tlv_data_len);
+			if (tlv_data == NULL) {
+			    fprintf(stderr, "Invalid TLV structure detected");
+				error = EXIT_FAILURE;
+				goto error;
+			}
 			switch (tlv_type) {
 			case 0x00:
 			    fprintf(message_stream, "NFC Forum application contains a \"NULL TLV\", Skipping...\n");	// According to [ANNFC1K4K], we skip this Tag to read further TLV blocks.

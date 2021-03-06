@@ -91,7 +91,7 @@ tlv_encode(const uint8_t type, const uint8_t *istream, uint16_t isize, size_t *o
  * Decode TLV from data stream.
  */
 uint8_t *
-tlv_decode(const uint8_t *istream, uint8_t *type, uint16_t *size)
+_tlv_decode(const uint8_t *istream, size_t istream_size, uint8_t *type, uint16_t *size)
 {
     size_t fls = 0;
     size_t fvs = 0;
@@ -100,7 +100,9 @@ tlv_decode(const uint8_t *istream, uint8_t *type, uint16_t *size)
     if (type)
 	*type = istream[0];
 
-    tlv_record_length(istream, &fls, &fvs);
+    size_t len = tlv_record_length(istream, &fls, &fvs);
+    if (len == -1 || istream_size < len)
+        return NULL;
 
     if (size) {
 	*size = fvs;
@@ -110,6 +112,22 @@ tlv_decode(const uint8_t *istream, uint8_t *type, uint16_t *size)
 	memcpy(res, istream + 1 + fls, fvs);
     }
     return res;
+}
+
+/*
+ * Decode TLV from data stream. Deprecated, use tlv_decode_safe.
+ */
+uint8_t *
+tlv_decode(const uint8_t *istream, uint8_t *type, uint16_t *size)
+{
+    // Doesn't care about input buffer length, set it to maximum possible value
+    return _tlv_decode(istream, 0xfffe + 4, type, size);
+}
+
+uint8_t *
+tlv_decode_safe(const uint8_t *istream, size_t istream_size, uint8_t *type, uint16_t *size)
+{
+    return _tlv_decode(istream, istream_size, type, size);
 }
 
 /*
@@ -134,6 +152,9 @@ tlv_record_length(const uint8_t *stream, size_t *field_length_size, size_t *fiel
 	    memcpy(&be_size, stream + 2, sizeof(uint16_t));
 	    fls = 3;
 	    fvs = be16toh(be_size);
+            // Invalid values by specification
+            if (fvs < 0xFF || fvs >= 0xFFFF)
+                return -1;
 	} else {
 	    fls = 1;
 	    fvs = stream[1];
